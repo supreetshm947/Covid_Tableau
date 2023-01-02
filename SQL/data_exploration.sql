@@ -93,3 +93,14 @@ insert into vac_n_pop
 select location, date, (total_vaccinations::real/population::real)*100 as vaccination_rate
 from vac_n_pop ;
 
+--create view for covid vaccinations vs populations
+create view vac_n_pop_view as
+	select dea.location, dea.date, dea.population, vacc.new_vaccinations,
+	sum(vacc.new_vaccinations) over (partition by dea.location 
+	order by dea.date) as total_vaccinations
+	from covid_deaths dea join covid_vaccinations vacc on 
+	dea.location = vacc.location and dea.date = vacc.date
+	where dea.continent is not null
+	order by 1,2;
+	
+select * from vac_n_pop_view;
