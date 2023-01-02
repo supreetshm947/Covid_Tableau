@@ -46,11 +46,50 @@ from covid_deaths where continent is not null
 and total_cases is not null and total_deaths is not null
 order by death_rate desc;
 
---covid vaccinations vs populations using paging function
+--covid vaccinations vs populations by date using paging function
+--partition starts over aggregate function wherver the by col changes value
+--order by in partition makes the aggregate run only when value changes for aggregate col(new_vacc) for the order by col(date)
 select dea.location, dea.date, dea.population, vacc.new_vaccinations,
 sum(vacc.new_vaccinations) over (partition by dea.location 
-order by dea.location, dea.date) as total_vaccinations
+order by dea.date) as total_vaccinations
 from covid_deaths dea join covid_vaccinations vacc on 
 dea.location = vacc.location and dea.date = vacc.date
 where dea.continent is not null
 order by 1,2;
+
+--using declared variables -> 2 methods CTE and create temp table
+--CTE - Common Table Expression
+with vacc_n_pop (location, date, population, new_vaccination, total_vaccinations)
+as
+(
+	select dea.location, dea.date, dea.population, vacc.new_vaccinations,
+	sum(vacc.new_vaccinations) over (partition by dea.location 
+	order by dea.date) as total_vaccinations
+	from covid_deaths dea join covid_vaccinations vacc on 
+	dea.location = vacc.location and dea.date = vacc.date
+	where dea.continent is not null
+	order by 1,2
+)
+select location, date, (total_vaccinations::real/population::real)*100 as vaccination_rate
+from vacc_n_pop ;
+
+--create temp table method
+drop table if exists vac_n_pop;
+create table vac_n_pop(
+	location VARCHAR(40),
+	date DATE,
+	population real,
+	new_vaccination real,
+	total_vaccinations real
+);
+insert into vac_n_pop
+	select dea.location, dea.date, dea.population, vacc.new_vaccinations,
+	sum(vacc.new_vaccinations) over (partition by dea.location 
+	order by dea.date) as total_vaccinations
+	from covid_deaths dea join covid_vaccinations vacc on 
+	dea.location = vacc.location and dea.date = vacc.date
+	where dea.continent is not null
+	order by 1,2;
+select location, date, (total_vaccinations::real/population::real)*100 as vaccination_rate
+from vac_n_pop ;
+
